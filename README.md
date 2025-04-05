@@ -84,11 +84,11 @@ Create a file named `swagger.json` at the root of your project with the followin
     "title": "My API",
     "version": "1.0.0"
   },
-  "paths": {
-    // ...
-  }
+  "paths": {}
 }
 ```
+
+> You can use yaml instead of json, just change the extension to .yaml
 
 ## Official Documentation 📚
 
