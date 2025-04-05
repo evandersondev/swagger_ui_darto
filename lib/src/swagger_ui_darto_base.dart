@@ -21,37 +21,44 @@ class SwaggerUiOptions {
 
 /// The SwaggerUi class provides a function to integrate Swagger UI,
 /// similar to swagger-ui-express, returning a Router that contains:
-/// - A GET route for '/swagger.json'
+/// - A GET route for serving the Swagger document (JSON or YAML)
 /// - A GET route for '/' (the mount point) that serves the Swagger UI HTML page.
 class SwaggerUi {
-  /// Returns a Router that serves the swagger.json file and the Swagger UI HTML page.
-  static Router serve(String swaggerJsonPath,
+  /// Returns a Router that serves the Swagger document file and the Swagger UI HTML page.
+  /// The file can be in JSON or YAML format.
+  static Router serve(String swaggerDocPath,
       {SwaggerUiOptions options = const SwaggerUiOptions()}) {
     final router = Router();
 
-    // Route to serve swagger.json
-    router.get('/swagger.json', (Request req, Response res) {
-      final file = File(swaggerJsonPath);
+    // Determine the file extension and route name.
+    final lowerPath = swaggerDocPath.toLowerCase();
+    final isYaml = lowerPath.endsWith('.yaml') || lowerPath.endsWith('.yml');
+    final routeName = isYaml ? 'swagger.yaml' : 'swagger.json';
+    final contentType = isYaml ? 'text/yaml' : 'application/json';
+
+    // Route to serve the swagger document. (swagger.json or swagger.yaml)
+    router.get('/$routeName', (Request req, Response res) {
+      final file = File(swaggerDocPath);
       if (file.existsSync()) {
-        res.set('Content-Type', 'application/json');
+        res.set('Content-Type', contentType);
         res.sendFile(file.path);
       } else {
         res
             .status(HttpStatus.notFound)
-            .send({'error': 'Swagger JSON not found'});
+            .send({'error': 'Swagger document not found'});
       }
     });
 
     // Route to serve the Swagger UI HTML page.
     router.get('/', (Request req, Response res) {
       res.set('Content-Type', 'text/html');
-      res.send(_swaggerUiHtml(options));
+      res.send(_swaggerUiHtml(options, routeName));
     });
 
     return router;
   }
 
-  static String _swaggerUiHtml(SwaggerUiOptions options) {
+  static String _swaggerUiHtml(SwaggerUiOptions options, String routeName) {
     return '''
 <!DOCTYPE html>
 <html lang="en">
@@ -67,14 +74,14 @@ class SwaggerUi {
   <script src="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui-bundle.js" crossorigin></script>
   <script>
     window.onload = function() {
-      // Construct the URL for swagger.json relative to the current window location
+      // Construct the URL for the swagger document relative to the current window location.
       let baseUrl = window.location.href;
-      if(!baseUrl.endsWith('/')) {
+      if (!baseUrl.endsWith('/')) {
         baseUrl += '/';
       }
-      const swaggerJsonUrl = baseUrl + 'swagger.json';
-      fetch(swaggerJsonUrl)
-        .then(response => response.json())
+      const swaggerDocUrl = baseUrl + '$routeName';
+      fetch(swaggerDocUrl)
+        .then(response => response.json().catch(() => response.text()))
         .then(spec => {
           const ui = SwaggerUIBundle({
             dom_id: '#swagger-ui',
